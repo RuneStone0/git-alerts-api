@@ -10,8 +10,8 @@ GitAlerts has three components, each with its own README:
 
 ## Branch model
 
-- `develop` is the integration branch and the target for pull requests. Branch from it, not from `main`.
-- `main` is the release branch. It moves when `develop` is merged into it, so do not open pull requests against `main`.
+- `develop` is the integration branch. Branch from it, and open your pull request against it, not against `main`.
+- `main` is the release branch. Promoting `develop` to `main` is a maintainer decision, so do not open pull requests against `main`.
 - Name feature branches by intent, for example `feat/scan-scheduling` or `fix/pagination-400`.
 
 ```bash
@@ -20,23 +20,23 @@ git switch -c feat/your-change origin/develop
 
 ## Commit messages
 
-Use conventional commits, `type(scope): summary`, matching the history of this repo:
+Use conventional commits, `type(scope): summary`:
 
 ```text
 fix(api): prevent 400 Bad Request during GitHub search pagination
 fix(mcp): security hardening and dependency upgrades
-build(ui): upgrade dependencies and apply security fix
+feat(api): add scan scheduling endpoint
 docs: add CONTRIBUTING.md
 ```
 
-Common types are `feat` for new behaviour, `fix` for a bug, `build` for dependency or packaging changes, and `docs` for documentation; `fix` and `build` are the ones already in the history. Scopes in use are `api`, `ui` and `mcp`. Keep the summary imperative and around 72 characters or less, and put the reasoning in the body rather than the subject.
+The first two are existing commits; the last two follow the same pattern. `fix` is the type already used in the history, and the others to reach for are `feat` for new behaviour, `build` for dependency or packaging changes, and `docs` for documentation. Use a scope matching the component you touched (`api`, `ui` or `mcp`), as `fix(api)` and `fix(mcp)` do. Keep the summary imperative and around 72 characters or less, and put the reasoning in the body rather than the subject.
 
 ## Pull requests
 
 - One behaviour per pull request. If you spot an unrelated bug on the way, fix it in its own PR.
 - Schema changes ship their own Django migration and nothing else in that PR: the migration files under `api/<app>/migrations/` plus the model change that requires them. A model change is easier to review when the diff is not mixed with feature work.
 - Update the relevant README when setup, configuration or behaviour changes, and add any new environment variable to `.env.example`.
-- There is no CI on this repository, so paste the command you ran and its result in the PR description. That is how a reviewer sees what was actually exercised.
+- There is no CI on this repository at the time of writing, so paste the command you ran and its result in the PR description. That is how a reviewer sees what was actually exercised.
 
 ## Running the stack
 
@@ -67,15 +67,21 @@ To run a single component natively instead, follow that component's README.
 
 ## Tests
 
-The API is tested with pytest and pytest-django:
+The API is tested with pytest and pytest-django. `api/api/settings.py` validates the environment when it is imported, so two prerequisites come before pytest can run at all:
+
+- An `api/.env`. Create it with `cp .env.example .env` from inside `api/`; the example file already sets `SECRET_KEY` and `ENCRYPTION_KEY`. Without it the settings fail at import with `Missing required enviornment variable: SECRET_KEY`.
+- The TruffleHog CLI on `PATH`, which the settings locate with `shutil.which`. Without it the import raises `RuntimeError: Executable 'trufflehog' is required but not found in PATH`. Install it as described in the [api/README.md](api/README.md) prerequisites and confirm with `trufflehog --version`.
+
+With both in place:
 
 ```bash
 cd api
+cp .env.example .env   # skip if you already created it
 uv sync
 uv run pytest
 ```
 
-`api/pytest.ini` points pytest at `api.settings`, and the Django apps keep their tests in per-app packages: `api/scans/tests/`, `api/findings/tests/` and `api/core/tests/` (`api/integrations/` still uses the single `tests.py` placeholder). Those settings take the database configuration from environment variables, so the Postgres service from `docker-compose.yml` (or an equivalent database) needs to be reachable.
+`api/pytest.ini` points pytest at `api.settings`, and the Django apps keep their tests in per-app packages: `api/scans/tests/`, `api/findings/tests/` and `api/core/tests/` (`api/integrations/` still uses the single `tests.py` placeholder). The test modules in those packages are empty, so a fresh clone reports `no tests collected`; that is the current starting point, not a broken setup. Tests that use the database need the Postgres service from `docker-compose.yml` (or an equivalent database) reachable, since the database configuration comes from the variables in `api/.env`.
 
 The UI has no test runner configured yet. Lint plus a production build are the checks:
 
