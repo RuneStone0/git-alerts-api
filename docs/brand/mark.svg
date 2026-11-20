@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="GitAlerts">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <path d="M6.8 13.6C6.8 12.3 7.6 11.2 8.8 10.7L30.8 3.1C31.6 2.8 32.4 2.8 33.2 3.1L55.2 10.7C56.4 11.2 57.2 12.3 57.2 13.6V31.2C57.2 44.9 46.2 56.3 32 61.4C17.8 56.3 6.8 44.9 6.8 31.2Z" fill="url(#g)"/>
+  <path d="M28.8 21.4a3.2 3.2 0 0 1 6.4 0v13.8a3.2 3.2 0 0 1-6.4 0z" fill="#ffffff"/>
+  <circle cx="32" cy="43.6" r="4.1" fill="#ffffff"/>
+</svg>
