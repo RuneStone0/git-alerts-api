@@ -69,14 +69,14 @@ To run a single component natively instead, follow that component's README.
 
 The API is tested with pytest and pytest-django. `api/api/settings.py` validates the environment when it is imported, so two prerequisites come before pytest can run at all:
 
-- An `api/.env`. Create it with `cp .env.example .env` from inside `api/`; the example file already sets `SECRET_KEY` and `ENCRYPTION_KEY`. Without it the settings fail at import with `Missing required enviornment variable: SECRET_KEY`.
+- A `.env` file the settings can load. `python-dotenv` searches upward from `api/api/`, so either the repository-root `.env` from the stack setup or an `api/.env` works; create the latter with `cp .env.example .env` from inside `api/` (the example file already sets `SECRET_KEY` and `ENCRYPTION_KEY`). From a fresh clone with neither, the settings fail at import with `Missing required enviornment variable: SECRET_KEY`.
 - The TruffleHog CLI on `PATH`, which the settings locate with `shutil.which`. Without it the import raises `RuntimeError: Executable 'trufflehog' is required but not found in PATH`. Install it as described in the [api/README.md](api/README.md) prerequisites and confirm with `trufflehog --version`.
 
 With both in place:
 
 ```bash
 cd api
-cp .env.example .env   # skip if you already created it
+cp .env.example .env   # skip if a .env is already in place
 uv sync
 uv run pytest
 ```
