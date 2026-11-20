@@ -1,7 +1,10 @@
 # GitAlerts brand assets
 
-The mark is a security shield carrying an alert mark. It is drawn on a 64 x 64
-grid (see `mark.svg`) so it stays legible at 16 px and holds up at 512 px.
+The mark is a security shield carrying an alert mark, drawn on a 64 x 64 grid
+(see `mark.svg`). The alert is weighted for the smallest surface rather than the
+largest: at 16 px one grid unit is 0.25 px, so the bar is 10 units (2.5 px) wide,
+the dot is 10 units across, and 4 units separate them. An earlier pass used a
+6.4-unit bar, which resampled to a blob inside the shield at tab size.
 
 | Surface | File | Notes |
 | --- | --- | --- |
