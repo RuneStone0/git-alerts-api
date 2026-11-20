@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { Logo } from '@/components/Logo';
 
 export const Layout: React.FC = () => {
   const { user, logout } = useAuth();
@@ -18,8 +19,9 @@ export const Layout: React.FC = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-8">
-              <Link to="/" className="text-2xl font-bold text-primary">
-                GitAlerts
+              <Link to="/" className="flex items-center gap-2.5" aria-label="GitAlerts home">
+                <Logo className="h-7 w-7 text-brand" title={null} />
+                <span className="text-2xl font-bold text-primary">GitAlerts</span>
               </Link>
               <nav className="flex space-x-6">
                 <Link

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { Logo } from '@/components/Logo';
 
 export const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -34,7 +35,8 @@ export const Login: React.FC = () => {
     <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-primary">Sign in to GitAlerts</h2>
+          <Logo className="mx-auto block h-12 w-12 text-brand" title={null} />
+          <h2 className="mt-4 text-3xl font-bold text-primary">Sign in to GitAlerts</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Enter your credentials to access your account
           </p>

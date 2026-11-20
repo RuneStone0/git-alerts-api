@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { Logo } from '@/components/Logo';
 
 export const Home: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -8,6 +9,7 @@ export const Home: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
       <div className="text-center space-y-6 max-w-3xl">
+        <Logo className="mx-auto block h-16 w-16 text-brand" title={null} />
         <h1 className="text-5xl font-bold text-primary">GitAlerts</h1>
         <p className="text-xl text-muted-foreground">
           Automated security scanning for GitHub repositories
