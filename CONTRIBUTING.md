@@ -81,7 +81,7 @@ uv sync
 uv run pytest
 ```
 
-`api/pytest.ini` points pytest at `api.settings`, and the Django apps keep their tests in per-app packages: `api/scans/tests/`, `api/findings/tests/` and `api/core/tests/` (`api/integrations/` still uses the single `tests.py` placeholder). The test modules in those packages are empty, so a fresh clone reports `no tests collected`; that is the current starting point, not a broken setup. Tests that use the database need the Postgres service from `docker-compose.yml` (or an equivalent database) reachable, since the database configuration comes from the variables in `api/.env`.
+`api/pytest.ini` points pytest at `api.settings`, and the Django apps keep their tests in per-app packages: `api/scans/tests/`, `api/findings/tests/` and `api/core/tests/` (`api/integrations/` still uses the single `tests.py` placeholder). The test modules in those packages are empty, so a fresh clone collects 0 tests and pytest exits with code 5; that is the current starting point, not a broken setup. Tests that use the database need the Postgres service from `docker-compose.yml` (or an equivalent database) reachable, since the database configuration comes from the variables in `api/.env`.
 
 The UI has no test runner configured yet. Lint plus a production build are the checks:
 
