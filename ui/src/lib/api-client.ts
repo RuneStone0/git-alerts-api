@@ -53,8 +53,13 @@ apiClient.interceptors.response.use(
       _retry?: boolean;
     };
 
-    // If error is 401 and we haven't retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // If the request failed because the access token is missing or expired, refresh once.
+    // 401 is the documented answer, but DRF returns 403 token_not_valid when JWT is not the
+    // first authenticator, and a client that only looks for 401 stays broken until logout.
+    const status = error.response?.status;
+    const tokenInvalid =
+      (error.response?.data as { code?: string } | undefined)?.code === 'token_not_valid';
+    if ((status === 401 || (status === 403 && tokenInvalid)) && !originalRequest._retry) {
       if (isRefreshing) {
         // If already refreshing, queue this request
         return new Promise((resolve, reject) => {
@@ -87,8 +92,11 @@ apiClient.interceptors.response.use(
       }
 
       try {
-        // Try to refresh the token
-        const response = await axios.post(`${API_BASE_URL}/api/token/refresh/`, {
+        // Try to refresh the token. API_BASE_URL is '/' when the UI is served same-origin
+        // behind a proxy, and a bare concatenation would build '//api/token/refresh/',
+        // which browsers read as protocol-relative (host "api"). Trim first.
+        const refreshBase = API_BASE_URL.replace(/\/+$/, '');
+        const response = await axios.post(`${refreshBase}/api/token/refresh/`, {
           refresh: refreshToken,
         });
 

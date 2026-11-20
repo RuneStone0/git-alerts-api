@@ -107,9 +107,14 @@ AUTH_PASSWORD_VALIDATORS = [
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 
+    # JWT first, session second: DRF decides between 401 and 403 for an unauthenticated
+    # request by asking the FIRST authenticator for a WWW-Authenticate header, and
+    # SessionAuthentication returns none, so an expired or invalid JWT was answered with
+    # 403 instead of 401. Clients that refresh on 401 (including the bundled UI) then
+    # never refreshed and the app stayed stuck until the user logged out and back in.
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework.authentication.SessionAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ),
 
     "DEFAULT_FILTER_BACKENDS": [
