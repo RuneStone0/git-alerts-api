@@ -6,6 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="GitAlerts - Discover and track exposed secrets and security findings in GitHub repositories" />
     <meta name="theme-color" content="#3b82f6" />
+    <!-- Social preview. Open Graph consumers need absolute URLs, so these read
+         %VITE_PUBLIC_URL% and the build rewrites it from the deploy environment
+         (see vite.config.ts). Unset, they fall back to same-origin paths. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="GitAlerts" />
+    <meta property="og:title" content="GitAlerts - Security Findings Tracker" />
+    <meta property="og:description" content="Find exposed secrets and credentials in GitHub repositories before someone else does." />
+    <meta property="og:url" content="%VITE_PUBLIC_URL%/" />
+    <meta property="og:image" content="%VITE_PUBLIC_URL%/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="The GitAlerts shield mark beside the wordmark on a dark blue background" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="GitAlerts - Security Findings Tracker" />
+    <meta name="twitter:description" content="Find exposed secrets and credentials in GitHub repositories before someone else does." />
+    <meta name="twitter:image" content="%VITE_PUBLIC_URL%/og-image.png" />
     <title>GitAlerts - Security Findings Tracker</title>
   </head>
   <body>
