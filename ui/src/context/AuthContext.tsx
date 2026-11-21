@@ -1,12 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { authApi } from '@/services/api';
+import { authApi, configApi } from '@/services/api';
 import type { LoginCredentials, TokenResponse, User } from '@/types';
+
+export type AuthMode = 'login' | 'open';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /** 'login' keeps the JWT sign-in screen; 'open' means the API assumes the local user. */
+  authMode: AuthMode;
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => void;
 }
@@ -28,25 +32,63 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
 
   useEffect(() => {
-    // Check if user is already logged in
-    const token = localStorage.getItem('access_token');
-    const storedUser = localStorage.getItem('user');
+    let cancelled = false;
 
-    if (token && storedUser) {
+    const bootstrap = async () => {
+      // Ask the API which mode it runs in before deciding whether a login is even possible.
       try {
-        const userData = JSON.parse(storedUser);
-        setUser(userData);
+        const config = await configApi.get();
+        if (cancelled) return;
+        setAuthMode(config.auth_mode);
+        localStorage.setItem('auth_mode', config.auth_mode);
+
+        if (config.auth_mode === 'open') {
+          // No tokens exist in this mode, and a stale one would be sent as a bogus bearer.
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user');
+          const localUser: User = {
+            id: config.local_user?.id ?? 0,
+            username: config.local_user?.username ?? 'local',
+            email: config.local_user?.email ?? '',
+          };
+          setUser(localUser);
+          setIsLoading(false);
+          return;
+        }
       } catch (error) {
-        console.error('Failed to parse stored user data:', error);
-        // Clear invalid data
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
+        // Unreachable API: fall back to the login flow rather than pretending to be signed in.
+        console.error('Failed to read instance config:', error);
+        localStorage.setItem('auth_mode', 'login');
       }
-    }
-    setIsLoading(false);
+
+      if (cancelled) return;
+      // Check if user is already logged in
+      const token = localStorage.getItem('access_token');
+      const storedUser = localStorage.getItem('user');
+
+      if (token && storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          setUser(userData);
+        } catch (error) {
+          console.error('Failed to parse stored user data:', error);
+          // Clear invalid data
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user');
+        }
+      }
+      setIsLoading(false);
+    };
+
+    bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
@@ -77,6 +119,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     isAuthenticated: !!user,
     isLoading,
+    authMode,
     login,
     logout,
   };

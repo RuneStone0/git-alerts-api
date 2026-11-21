@@ -8,11 +8,11 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, authMode } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
+  // Redirect if already authenticated, and never show the form on a deployment with no login.
+  if (isAuthenticated || authMode === 'open') {
     return <Navigate to="/dashboard" replace />;
   }
 

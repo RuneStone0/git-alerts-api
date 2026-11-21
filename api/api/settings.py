@@ -3,6 +3,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from .logging import LOGGING
 from .config import Config, ConfigError
+from core.instance import auth_mode, local_username, app_secret, legacy_secret
 from datetime import timedelta
 
 load_dotenv()
@@ -12,6 +13,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 try:
     SECRET_KEY = Config.get_env("SECRET_KEY")
     ENCRYPTION_KEY = Config.get_env("ENCRYPTION_KEY")
+
+    # Fernet keys for stored integration tokens. APP_SECRET is the current key; ENCRYPTION_KEY
+    # stays readable as a fallback so rotating the key never orphans stored tokens.
+    APP_SECRET = app_secret(ENCRYPTION_KEY)
+    LEGACY_ENCRYPTION_KEY = legacy_secret()
+
+    # "login" (default): JWT login screen. "open": single-tenant deployment where the API
+    # assumes one local principal and the UI skips the login screen.
+    AUTH_MODE = auth_mode()
+    LOCAL_USER_USERNAME = local_username()
+    if AUTH_MODE not in ("login", "open"):  # auth_mode() already validates; belt and braces
+        raise RuntimeError(f"GITALERTS_AUTH_MODE must be 'login' or 'open', got {AUTH_MODE!r}")
+
     DEBUG = Config.get_bool("DEBUG")
     ALLOWED_HOSTS = Config.get_list("ALLOWED_HOSTS")
 
@@ -104,18 +118,29 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-REST_FRAMEWORK = {
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+if AUTH_MODE == "open":
+    import logging as _logging
 
+    _logging.getLogger(__name__).warning(
+        "GITALERTS_AUTH_MODE=open: every request is authenticated as the local user %r. "
+        "Only do this on a deployment that is not reachable from an untrusted network.",
+        LOCAL_USER_USERNAME or "<first superuser>",
+    )
+    AUTHENTICATION_CLASSES = ("core.authentication.LocalUserAuthentication",)
+else:
     # JWT first, session second: DRF decides between 401 and 403 for an unauthenticated
     # request by asking the FIRST authenticator for a WWW-Authenticate header, and
     # SessionAuthentication returns none, so an expired or invalid JWT was answered with
     # 403 instead of 401. Clients that refresh on 401 (including the bundled UI) then
     # never refreshed and the app stayed stuck until the user logged out and back in.
-    "DEFAULT_AUTHENTICATION_CLASSES": (
+    AUTHENTICATION_CLASSES = (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
-    ),
+    )
+
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_AUTHENTICATION_CLASSES": AUTHENTICATION_CLASSES,
 
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",

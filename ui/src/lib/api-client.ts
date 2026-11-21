@@ -12,6 +12,11 @@ export const apiClient = axios.create({
   },
 });
 
+// When the API runs with AUTH_MODE=open there are no tokens to refresh: the server authenticates
+// every request as the local user, so a 401 must not bounce the browser to a login page that the
+// deployment does not use. AuthContext writes this key after reading /api/config/.
+const authIsOpen = () => localStorage.getItem('auth_mode') === 'open';
+
 // Token refresh state
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -87,7 +92,9 @@ apiClient.interceptors.response.use(
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        if (!authIsOpen()) {
+          window.location.href = '/login';
+        }
         return Promise.reject(error);
       }
 
@@ -120,7 +127,9 @@ apiClient.interceptors.response.use(
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        if (!authIsOpen()) {
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       }
     }

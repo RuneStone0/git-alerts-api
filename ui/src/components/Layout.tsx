@@ -17,7 +17,9 @@ const linkClass =
   'flex min-h-11 items-center rounded-md px-2 text-base font-medium text-foreground hover:bg-muted hover:text-primary md:min-h-0 md:px-0 md:text-sm md:hover:bg-transparent transition-colors';
 
 export const Layout: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, authMode } = useAuth();
+  // With auth open the API has no session to end, so no Logout is offered anywhere.
+  const canLogout = authMode === 'login';
   const navigate = useNavigate();
   const location = useLocation();
   // The panel remembers the history entry it was opened on, so any navigation (link,
@@ -68,7 +70,7 @@ export const Layout: React.FC = () => {
                   {user.username}
                 </span>
               )}
-              {user && (
+              {user && canLogout && (
                 <button
                   onClick={handleLogout}
                   className="hidden text-sm font-medium text-foreground hover:text-primary transition-colors md:inline-flex md:min-h-11 md:items-center"
@@ -104,12 +106,14 @@ export const Layout: React.FC = () => {
               {user && (
                 <div className="mt-2 flex items-center justify-between gap-3 border-t border-border px-2 pt-3">
                   <span className="truncate text-sm text-muted-foreground">{user.username}</span>
-                  <button
-                    onClick={handleLogout}
-                    className="inline-flex min-h-11 items-center rounded-md px-2 text-base font-medium text-foreground hover:text-primary transition-colors"
-                  >
-                    Logout
-                  </button>
+                  {canLogout && (
+                    <button
+                      onClick={handleLogout}
+                      className="inline-flex min-h-11 items-center rounded-md px-2 text-base font-medium text-foreground hover:text-primary transition-colors"
+                    >
+                      Logout
+                    </button>
+                  )}
                 </div>
               )}
             </nav>

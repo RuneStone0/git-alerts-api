@@ -16,6 +16,19 @@ import type {
   UpdateSystemSettingsRequest,
 } from '@/types';
 
+export interface InstanceConfig {
+  auth_mode: 'login' | 'open';
+  local_user: { id: number; username: string; email: string } | null;
+}
+
+// Public bootstrap config: tells the UI whether this deployment has a login at all
+export const configApi = {
+  get: async (): Promise<InstanceConfig> => {
+    const response = await apiClient.get<InstanceConfig>('/api/config/');
+    return response.data;
+  },
+};
+
 // Auth API
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<TokenResponse> => {
