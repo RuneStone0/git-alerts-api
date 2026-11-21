@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { scansApi } from '@/services/api';
+import {
+  StatusIndicator,
+  scanStatusLabel,
+  scanStatusTone,
+} from '@/components/StatusIndicator';
 
 export const Scans: React.FC = () => {
   const queryClient = useQueryClient();
@@ -104,15 +109,6 @@ export const Scans: React.FC = () => {
     setFilterForm({ ...filterForm, [key]: '' });
   };
 
-  const getStatusBadge = (status: string) => {
-    const styles = {
-      queued: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-      in_progress: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
-      completed: 'bg-green-500/10 text-green-600 dark:text-green-400',
-      failed: 'bg-red-500/10 text-red-600 dark:text-red-400',
-    };
-    return styles[status as keyof typeof styles] || 'bg-muted text-muted-foreground';
-  };
 
   const formatScanType = (type: string) => {
     const typeMap: Record<string, string> = {
@@ -386,13 +382,10 @@ export const Scans: React.FC = () => {
                       <span className="text-sm text-foreground">{scan.value}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(
-                          scan.status
-                        )}`}
-                      >
-                        {scan.status.replace('_', ' ').toUpperCase()}
-                      </span>
+                      <StatusIndicator
+                        tone={scanStatusTone(scan.status)}
+                        label={scanStatusLabel(scan.status)}
+                      />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-foreground">
@@ -435,14 +428,18 @@ export const Scans: React.FC = () => {
             {scans.map((scan) => (
               <li key={scan.id} className="p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
+                  <div className="grid min-w-0 flex-1 grid-cols-[5.5rem_1fr] items-start gap-x-2">
+                    <StatusIndicator
+                      tone={scanStatusTone(scan.status)}
+                      label={scanStatusLabel(scan.status)}
+                    />
                     <Link
                       to={`/scans/${scan.id}`}
-                      className="text-sm font-semibold text-primary hover:underline"
+                      className="min-w-0 text-sm font-semibold leading-5 text-primary hover:underline"
                     >
                       {formatScanType(scan.type)}
                     </Link>
-                    <p className="truncate text-sm text-foreground">{scan.value}</p>
+                    <p className="col-span-2 mt-1 truncate text-sm text-foreground">{scan.value}</p>
                   </div>
                   <input
                     type="checkbox"
@@ -453,16 +450,7 @@ export const Scans: React.FC = () => {
                   />
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(
-                      scan.status
-                    )}`}
-                  >
-                    {scan.status.replace('_', ' ').toUpperCase()}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-2 text-xs text-muted-foreground">
                   {new Date(scan.created_at).toLocaleDateString()} at{' '}
                   {new Date(scan.created_at).toLocaleTimeString()}
                 </p>

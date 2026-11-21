@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { findingsApi } from '@/services/api';
+import {
+  StatusIndicator,
+  validatedLabel,
+  validatedTone,
+} from '@/components/StatusIndicator';
 
 export const Findings: React.FC = () => {
   const queryClient = useQueryClient();
@@ -136,11 +141,6 @@ export const Findings: React.FC = () => {
     }
   };
 
-  const getValidatedBadge = (validated: boolean) => {
-    return validated
-      ? 'bg-green-500/10 text-green-600'
-      : 'bg-yellow-500/10 text-yellow-600';
-  };
 
   // Get active filter labels
   const activeFilters = Object.entries(filters)
@@ -418,13 +418,10 @@ export const Findings: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getValidatedBadge(
-                            finding.validated
-                          )}`}
-                        >
-                          {finding.validated ? 'VALIDATED' : 'UNVALIDATED'}
-                        </span>
+                        <StatusIndicator
+                          tone={validatedTone(finding.validated)}
+                          label={validatedLabel(finding.validated)}
+                        />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                         {new Date(finding.created_at).toLocaleDateString()}
@@ -451,15 +448,19 @@ export const Findings: React.FC = () => {
               {findings.map((finding) => (
                 <li key={finding.id} className="p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <span className="text-sm font-semibold text-foreground">
+                    <div className="grid min-w-0 flex-1 grid-cols-[5.5rem_1fr] items-start gap-x-2">
+                      <StatusIndicator
+                        tone={validatedTone(finding.validated)}
+                        label={validatedLabel(finding.validated)}
+                      />
+                      <span className="min-w-0 text-sm font-semibold leading-5 text-foreground">
                         {finding.type}
                       </span>
                       <a
                         href={finding.repository.startsWith('http') ? finding.repository : `https://github.com/${finding.repository}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-1 block break-words text-sm text-primary hover:underline"
+                        className="col-span-2 mt-1 block break-words text-sm text-primary hover:underline"
                       >
                         {finding.repository}
                       </a>
@@ -473,16 +474,7 @@ export const Findings: React.FC = () => {
                     />
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${getValidatedBadge(
-                        finding.validated
-                      )}`}
-                    >
-                      {finding.validated ? 'VALIDATED' : 'UNVALIDATED'}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     {new Date(finding.created_at).toLocaleDateString()} at{' '}
                     {new Date(finding.created_at).toLocaleTimeString()}
                   </p>
@@ -529,13 +521,10 @@ export const Findings: React.FC = () => {
 
                       <div>
                         <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getValidatedBadge(
-                            selectedFinding.validated
-                          )}`}
-                        >
-                          {selectedFinding.validated ? 'VALIDATED' : 'UNVALIDATED'}
-                        </span>
+                        <StatusIndicator
+                          tone={validatedTone(selectedFinding.validated)}
+                          label={validatedLabel(selectedFinding.validated)}
+                        />
                       </div>
                     </div>
 
