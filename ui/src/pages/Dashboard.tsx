@@ -116,25 +116,27 @@ export const Dashboard: React.FC = () => {
                   to={`/scans/${scan.id}`}
                   className="block p-4 hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span className="text-sm font-medium text-foreground">
                           {formatScanType(scan.type)}
                         </span>
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(
                             scan.status
                           )}`}
                         >
                           {scan.status.replace('_', ' ').toUpperCase()}
                         </span>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">{scan.value}</p>
+                      <p className="text-sm text-muted-foreground mt-1 truncate">{scan.value}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-foreground">{scan.total_findings} findings</p>
-                      <p className="text-xs text-muted-foreground">
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm tabular-nums text-foreground">
+                        {scan.total_findings} findings
+                      </p>
+                      <p className="text-xs tabular-nums text-muted-foreground mt-1">
                         {new Date(scan.created_at).toLocaleDateString()}
                       </p>
                     </div>
@@ -173,29 +175,31 @@ export const Dashboard: React.FC = () => {
                   key={finding.id}
                   className="p-4 hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span className="text-sm font-medium text-foreground">
                           {finding.type}
                         </span>
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                             finding.validated
-                              ? 'bg-green-500/10 text-green-600'
-                              : 'bg-yellow-500/10 text-yellow-600'
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                              : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
                           }`}
                         >
                           {finding.validated ? 'VALIDATED' : 'UNVALIDATED'}
                         </span>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm text-muted-foreground mt-1 truncate">
                         {finding.repository}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-foreground">{finding.email || 'N/A'}</p>
-                      <p className="text-xs text-muted-foreground">
+                    <div className="shrink-0 max-w-[55%] text-right">
+                      <p className="text-sm text-foreground truncate" title={finding.email || ''}>
+                        {finding.email || 'N/A'}
+                      </p>
+                      <p className="text-xs tabular-nums text-muted-foreground mt-1">
                         {new Date(finding.created_at).toLocaleDateString()}
                       </p>
                     </div>
