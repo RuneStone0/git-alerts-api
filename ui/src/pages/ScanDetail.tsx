@@ -143,6 +143,16 @@ export const ScanDetail: React.FC = () => {
           </div>
         </div>
 
+        {/* A failed scan used to say only "failed"; the cause lived in the celery log alone. */}
+        {scan.status === 'failed' && scan.error_message && (
+          <div className="border-t border-border pt-6">
+            <h2 className="text-xl font-semibold text-foreground mb-4">Why it failed</h2>
+            <p className="rounded-lg bg-red-500/10 p-4 font-mono text-sm break-words text-red-600 dark:text-red-400">
+              {scan.error_message}
+            </p>
+          </div>
+        )}
+
         {/* Statistics */}
         <div className="border-t border-border pt-6">
           <h2 className="text-xl font-semibold text-foreground mb-4">Statistics</h2>

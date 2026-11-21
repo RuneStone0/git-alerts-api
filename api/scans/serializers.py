@@ -13,7 +13,7 @@ class ScanSerializer(serializers.ModelSerializer):
             "user", "status",
             "total_repositories", "total_findings",
             "ignored_repositories", "ignored_findings",
-            "scanned_repositories",
+            "scanned_repositories", "error_message",
             "created_at", "updated_at", "completed_at"
         ]
     

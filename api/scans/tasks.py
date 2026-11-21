@@ -3,7 +3,7 @@ from celery import shared_task
 from django.utils import timezone
 from .models import Scan
 from integrations.models import UserIntegration
-from integrations.tasks import validate_github_integration
+from integrations.tasks import validate_github_integration, is_transient_error
 from core.clients.github_client import GitHubClient, GitHubAuthError
 from core.clients.trufflehog_client import TruffleHogClient
 from core.services.scan_orchestrator import ScanOrchestrator
@@ -39,20 +39,33 @@ def run_scan_task(scan_id):
         is_valid, error_message = validate_github_integration(github_token)
 
         if not is_valid:
-            integration.status = UserIntegration.Status.FAILED
-            integration.error_message = error_message
-            integration.last_validated_at = timezone.now()
-            integration.save()
+            if is_transient_error(error_message):
+                # The token was not the problem, the network was. Leave the integration as it
+                # was: flipping it to FAILED used to stick forever and block every new scan.
+                logger.error(
+                    f"event=scan_preflight_network_error scan_id={scan_id} "
+                    f"integration_id={integration.id} reason={error_message}"
+                )
+            else:
+                integration.status = UserIntegration.Status.FAILED
+                integration.error_message = error_message
+                integration.last_validated_at = timezone.now()
+                integration.save()
 
-            logger.error(
-                f"event=scan_preflight_failed scan_id={scan_id} integration_id={integration.id} reason={error_message}"
-            )
+                logger.error(
+                    f"event=scan_preflight_failed scan_id={scan_id} integration_id={integration.id} reason={error_message}"
+                )
 
             scan.status = Scan.ScanStatus.FAILED
+            scan.error_message = error_message
             scan.save()
 
             raise ValueError(f"GitHub token validation failed: {error_message}")
 
+        # Validation just proved the token works, so clear any failure an earlier scan left
+        # behind and put the integration back in the one state that allows new scans.
+        integration.status = UserIntegration.Status.CONNECTED
+        integration.error_message = ''
         integration.last_validated_at = timezone.now()
         integration.save()
 
@@ -90,6 +103,7 @@ def run_scan_task(scan_id):
 
         if scan:
             scan.status = Scan.ScanStatus.FAILED
+            scan.error_message = "GitHub token is invalid or expired"
             scan.save()
 
         raise
@@ -98,5 +112,7 @@ def run_scan_task(scan_id):
         logger.error(f"event=scan_failed scan_id={scan_id} error={e}", exc_info=True)
         if scan:
             scan.status = Scan.ScanStatus.FAILED
+            # Keep the specific reason already recorded (preflight), otherwise store this one.
+            scan.error_message = scan.error_message or f"{type(e).__name__}: {e}"
             scan.save()
         raise

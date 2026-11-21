@@ -31,7 +31,11 @@ class Scan(models.Model):
     ignored_findings = models.IntegerField(default=0)
 
     scanned_repositories = models.IntegerField(default=0)
-    
+
+    # Why a scan ended in FAILED. Empty for any other status. Without this the UI could only
+    # say "failed" and the cause existed nowhere but the celery log.
+    error_message = models.TextField(blank=True, default="")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True, blank=True)

@@ -49,6 +49,7 @@ export interface Scan {
   ignored_repositories: number;
   ignored_findings: number;
   scanned_repositories: number;
+  error_message?: string;
 }
 
 export interface CreateScanRequest {
