@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { Logo } from '@/components/Logo';
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -46,8 +47,9 @@ export const Layout: React.FC = () => {
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-3 py-2">
-            <Link to="/" className="truncate text-xl font-bold text-primary sm:text-2xl">
-              GitAlerts
+            <Link to="/" className="flex min-w-0 items-center gap-2" aria-label="GitAlerts home">
+              <Logo className="h-7 w-7 shrink-0 text-brand" title={null} />
+              <span className="truncate text-xl font-bold text-primary sm:text-2xl">GitAlerts</span>
             </Link>
 
             {/* Desktop navigation */}

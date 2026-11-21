@@ -26,6 +26,9 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
+  /* Product brand colour (the logo mark). Deliberately not tied to --primary,
+     which flips black/white with the theme; this one stays blue in both. */
+  --color-brand: hsl(var(--brand));
 }
 
 @layer base {
@@ -50,6 +53,7 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+    --brand: 217 91% 60%; /* #3b82f6 */
   }
 
   .dark {
@@ -72,6 +76,7 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+    --brand: 213 94% 68%; /* #60a5fa, lifted so the mark keeps its contrast on the dark surface */
   }
 }
 
