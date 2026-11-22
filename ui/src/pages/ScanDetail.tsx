@@ -12,6 +12,9 @@ export const ScanDetail: React.FC = () => {
     queryKey: ['scan', id],
     queryFn: () => scansApi.get(Number(id)),
     enabled: !!id,
+    // A deleted scan (the factory removes scan rows after extracting findings) answers 404;
+    // retrying a 404 is pointless, but transient network errors should still retry.
+    retry: (_count, err) => (err as { response?: { status?: number } })?.response?.status !== 404,
     refetchInterval: (query) => {
       const data = query.state.data;
       // Auto-refresh every 3 seconds if scan is active
@@ -68,10 +71,15 @@ export const ScanDetail: React.FC = () => {
   }
 
   if (error || !scan) {
+    const isGone = (error as { response?: { status?: number } } | null)?.response?.status === 404;
     return (
       <div className="space-y-6">
         <div className="bg-card border border-border rounded-lg p-8 text-center">
-          <p className="text-destructive">Failed to load scan details</p>
+          <p className="text-destructive">
+            {isGone
+              ? 'This scan no longer exists. Its findings were extracted and the scan row was cleaned up.'
+              : 'Failed to load scan details'}
+          </p>
           <Link
             to="/scans"
             className="inline-block mt-4 text-primary hover:underline"

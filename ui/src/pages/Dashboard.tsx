@@ -11,23 +11,32 @@ import {
 } from '@/components/StatusIndicator';
 
 export const Dashboard: React.FC = () => {
-  const { data: scans = [], isLoading: scansLoading } = useQuery({
-    queryKey: ['scans'],
-    queryFn: () => scansApi.list(),
+  const { data: scansPage, isLoading: scansLoading } = useQuery({
+    queryKey: ['scans', { recent: true }],
+    queryFn: () => scansApi.list({ page: 1, page_size: 5 }),
   });
 
-  const { data: findings = [], isLoading: findingsLoading } = useQuery({
-    queryKey: ['findings'],
-    queryFn: () => findingsApi.list(),
+  const { data: findingsPage, isLoading: findingsLoading } = useQuery({
+    queryKey: ['findings', { recent: true }],
+    queryFn: () => findingsApi.list({ page: 1, page_size: 5 }),
   });
 
-  const totalScans = scans.length;
-  const totalFindings = findings.length;
-  const activeScans = scans.filter(
-    (scan) => scan.status === 'in_progress' || scan.status === 'queued'
-  ).length;
-  const recentScans = scans.slice(0, 5);
-  const recentFindings = findings.slice(0, 5);
+  // Active-scans count cannot be read from a 5-row page, so ask the API for the count of each
+  // live status directly (page_size 1 keeps the payload tiny; only `.count` is used).
+  const { data: queuedPage, isLoading: queuedLoading } = useQuery({
+    queryKey: ['scans', { count: 'queued' }],
+    queryFn: () => scansApi.list({ status: 'queued', page: 1, page_size: 1 }),
+  });
+  const { data: inProgressPage, isLoading: inProgressLoading } = useQuery({
+    queryKey: ['scans', { count: 'in_progress' }],
+    queryFn: () => scansApi.list({ status: 'in_progress', page: 1, page_size: 1 }),
+  });
+
+  const totalScans = scansPage?.count ?? 0;
+  const totalFindings = findingsPage?.count ?? 0;
+  const activeScans = (queuedPage?.count ?? 0) + (inProgressPage?.count ?? 0);
+  const recentScans = scansPage?.results ?? [];
+  const recentFindings = findingsPage?.results ?? [];
 
   const formatScanType = (type: string) => {
     const typeMap: Record<string, string> = {
@@ -79,7 +88,7 @@ export const Dashboard: React.FC = () => {
         <div className="rounded-lg border border-border bg-card p-4 sm:p-6">
           <h3 className="text-sm font-medium text-muted-foreground">Active Scans</h3>
           <p className="text-3xl font-bold text-foreground mt-2">
-            {scansLoading ? '...' : activeScans}
+            {scansLoading || queuedLoading || inProgressLoading ? '...' : activeScans}
           </p>
           <p className="text-xs text-muted-foreground mt-1">In progress or queued</p>
         </div>

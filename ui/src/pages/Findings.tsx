@@ -14,6 +14,8 @@ export const Findings: React.FC = () => {
   const [selectedFinding, setSelectedFinding] = useState<any>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedFindings, setSelectedFindings] = useState<Set<number>>(new Set());
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
 
   // Filter form state
   const [filterForm, setFilterForm] = useState({
@@ -37,10 +39,14 @@ export const Findings: React.FC = () => {
     created_at: searchParams.get('created_at') || undefined,
   };
 
-  const { data: findings = [], isLoading, error } = useQuery({
-    queryKey: ['findings', filters],
-    queryFn: () => findingsApi.list(filters),
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['findings', filters, page],
+    queryFn: () => findingsApi.list({ ...filters, page, page_size: pageSize }),
   });
+
+  const findings = data?.results ?? [];
+  const totalCount = data?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const deleteFindingMutation = useMutation({
     mutationFn: findingsApi.delete,
@@ -93,6 +99,7 @@ export const Findings: React.FC = () => {
       }
     });
     setSearchParams(newParams);
+    setPage(1);
     setShowFilters(false);
   };
 
@@ -107,6 +114,7 @@ export const Findings: React.FC = () => {
       created_at: '',
     });
     setSearchParams(new URLSearchParams());
+    setPage(1);
   };
 
   const handleRemoveFilter = (key: string) => {
@@ -114,6 +122,7 @@ export const Findings: React.FC = () => {
     newParams.delete(key);
     setSearchParams(newParams);
     setFilterForm({ ...filterForm, [key]: '' });
+    setPage(1);
   };
 
   const handleToggleSelection = (id: number) => {
@@ -493,6 +502,32 @@ export const Findings: React.FC = () => {
                 </li>
               ))}
             </ul>
+
+            {/* Pagination */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 sm:px-6">
+              <p className="text-sm text-muted-foreground">
+                Showing {findings.length} of {totalCount} finding{totalCount === 1 ? '' : 's'}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="inline-flex min-h-9 items-center justify-center rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="inline-flex min-h-9 items-center justify-center rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Details Modal */}

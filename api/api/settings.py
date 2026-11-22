@@ -146,6 +146,11 @@ REST_FRAMEWORK = {
         "django_filters.rest_framework.DjangoFilterBackend",
     ],
 
+    # Optional pagination: list views return a bare list unless the client passes ?page= /
+    # ?page_size=, in which case they return the standard {count, next, previous, results}
+    # envelope. The browser UI paginates; the resolver and scan factory read full lists unchanged.
+    "DEFAULT_PAGINATION_CLASS": "api.pagination.OptionalPageNumberPagination",
+
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
     ],

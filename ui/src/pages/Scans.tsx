@@ -13,6 +13,8 @@ export const Scans: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedScans, setSelectedScans] = useState<Set<number>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
 
   // Filter form state
   const [filterForm, setFilterForm] = useState({
@@ -32,18 +34,22 @@ export const Scans: React.FC = () => {
     completed_at: searchParams.get('completed_at') || undefined,
   };
 
-  const { data: scans = [], isLoading, error } = useQuery({
-    queryKey: ['scans', filters],
-    queryFn: () => scansApi.list(filters),
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['scans', filters, page],
+    queryFn: () => scansApi.list({ ...filters, page, page_size: pageSize }),
     refetchInterval: (query) => {
-      const data = query.state.data;
-      // Auto-refresh every 5 seconds if any scan is active
-      const hasActiveScan = data?.some(
+      const results = query.state.data?.results;
+      // Auto-refresh every 5 seconds if any scan on this page is active
+      const hasActiveScan = results?.some(
         (scan) => scan.status === 'queued' || scan.status === 'in_progress'
       );
       return hasActiveScan ? 5000 : false;
     },
   });
+
+  const scans = data?.results ?? [];
+  const totalCount = data?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: number[]) => {
@@ -88,6 +94,7 @@ export const Scans: React.FC = () => {
       }
     });
     setSearchParams(newParams);
+    setPage(1);
     setShowFilters(false);
   };
 
@@ -100,6 +107,7 @@ export const Scans: React.FC = () => {
       completed_at: '',
     });
     setSearchParams(new URLSearchParams());
+    setPage(1);
   };
 
   const handleRemoveFilter = (key: string) => {
@@ -107,6 +115,7 @@ export const Scans: React.FC = () => {
     newParams.delete(key);
     setSearchParams(newParams);
     setFilterForm({ ...filterForm, [key]: '' });
+    setPage(1);
   };
 
 
@@ -479,6 +488,32 @@ export const Scans: React.FC = () => {
               </li>
             ))}
           </ul>
+
+          {/* Pagination */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 sm:px-6">
+            <p className="text-sm text-muted-foreground">
+              Showing {scans.length} of {totalCount} scan{totalCount === 1 ? '' : 's'}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="inline-flex min-h-9 items-center justify-center rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="inline-flex min-h-9 items-center justify-center rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
