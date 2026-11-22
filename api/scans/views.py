@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from .serializers import ScanSerializer
 from .models import Scan
-from findings.serializers import FindingSerializer
+from findings.serializers import FindingListSerializer, FindingSerializer, wants_value
 from .tasks import run_scan_task
 
 logger = getLogger(__name__)
@@ -47,8 +47,13 @@ class ScanDetailsView(generics.RetrieveDestroyAPIView):
 class ScanFindingsView(generics.ListAPIView):
     """API view for checking findings based on a scan"""
 
-    serializer_class = FindingSerializer
+    serializer_class = FindingListSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if wants_value(self.request):
+            return FindingSerializer
+        return FindingListSerializer
 
     def get_queryset(self):
         """Returns findings related to scan created by the user"""

@@ -2,19 +2,27 @@ from logging import getLogger
 from django.db.models import Q
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
-from .serializers import FindingSerializer, IgnoreFindingTypeSerializer, IgnoreFindingDomainSerializer
+from .serializers import (
+    FindingSerializer, FindingListSerializer, wants_value,
+    IgnoreFindingTypeSerializer, IgnoreFindingDomainSerializer,
+)
 from . models import Finding, IgnoreFindingType, IgnoreFindingDomain
 
 logger = getLogger(__name__)
 
 class FindingView(generics.ListAPIView):
-    "API view for listing findings"
-    serializer_class = FindingSerializer
+    """API view for listing findings"""
+    serializer_class = FindingListSerializer
     permission_classes = [IsAuthenticated]
 
     filterset_fields = ["type", "value", "email", "repository", "scan", "validated", "created_at"]
     search_fields = ["repository", "email", "description", "value", "commit_hash"]
     ordering_fields = ["created_at", "type", "repository", "email"]
+
+    def get_serializer_class(self):
+        if wants_value(self.request):
+            return FindingSerializer
+        return FindingListSerializer
 
     def get_queryset(self):
         # scan is SET_NULL so extracted findings outlive their scan; those rows belong to the

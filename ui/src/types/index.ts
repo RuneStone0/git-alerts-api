@@ -63,7 +63,9 @@ export interface Finding {
   scan: number;
   repository: string;
   type: string;
-  value: string;
+  /** Only present on the detail endpoint; list rows expose value_length instead. */
+  value?: string;
+  value_length?: number;
   description: string;
   file: string;
   line: number | null;

@@ -8,6 +8,21 @@ import {
   validatedTone,
 } from '@/components/StatusIndicator';
 
+/** Deep link to the exact line that produced a finding, on the commit that holds it. */
+const githubLineUrl = (finding: any): string | null => {
+  if (!finding?.file) return null;
+  const repo = String(finding.repository || '');
+  const slug = repo.includes('github.com/')
+    ? repo.split('github.com/')[1]
+    : repo;
+  const ownerRepo = slug.replace(/\.git$/, '').split('/').filter(Boolean).slice(0, 2).join('/');
+  if (!ownerRepo.includes('/')) return null;
+  const ref = finding.commit_hash || 'HEAD';
+  const path = String(finding.file).split('/').map(encodeURIComponent).join('/');
+  const line = finding.line ? `#L${finding.line}` : '';
+  return `https://github.com/${ownerRepo}/blob/${ref}/${path}${line}`;
+};
+
 export const Findings: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -47,6 +62,14 @@ export const Findings: React.FC = () => {
   const findings = data?.results ?? [];
   const totalCount = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  // List rows deliberately carry no secret, so the modal fetches the one finding it is showing.
+  const { data: findingDetail } = useQuery({
+    queryKey: ['finding', selectedFinding?.id],
+    queryFn: () => findingsApi.get(selectedFinding.id),
+    enabled: Boolean(selectedFinding?.id),
+  });
+  const detail = findingDetail ?? selectedFinding;
 
   const deleteFindingMutation = useMutation({
     mutationFn: findingsApi.delete,
@@ -585,9 +608,19 @@ export const Findings: React.FC = () => {
                     <div>
                       <h3 className="text-sm font-medium text-muted-foreground">File</h3>
                       <p className="text-foreground font-mono text-sm break-all">
-                        {selectedFinding.file}
-                        {selectedFinding.line && ` : Line ${selectedFinding.line}`}
+                        {detail.file}
+                        {detail.line && ` : Line ${detail.line}`}
                       </p>
+                      {githubLineUrl(detail) && (
+                        <a
+                          href={githubLineUrl(detail)!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline text-sm"
+                        >
+                          Open {detail.line ? `line ${detail.line}` : 'file'} on GitHub ↗
+                        </a>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -621,7 +654,7 @@ export const Findings: React.FC = () => {
                       </h3>
                       <div className="bg-muted p-3 rounded">
                         <code className="text-xs text-destructive break-all">
-                          {selectedFinding.value}
+                          {detail.value ?? `fetching ${detail.value_length ?? ''}-character value...`}
                         </code>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
