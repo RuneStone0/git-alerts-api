@@ -49,6 +49,7 @@ class GitHubClient:
         """Centralised request wrapper with logging and error handling"""
         CORE_API_MAX_RETRIES = 3
         SEARCH_API_MAX_RETRIES = 20
+        NETWORK_MAX_RETRIES = 4
 
         logger.info(f"event=github_request_started method={method} url={url}")
 
@@ -61,6 +62,17 @@ class GitHubClient:
                 **kwargs,
             )
         except requests.RequestException as e:
+            # This host's DNS fails intermittently ("Temporary failure in name resolution"),
+            # which used to abort a whole org scan on the first blip. Back off and retry: a
+            # transient network error says nothing about the token or the organisation.
+            if _retries < NETWORK_MAX_RETRIES:
+                delay = 2 ** _retries
+                logger.warning(
+                    f"event=github_request_network_retry url={url} attempt={_retries + 1} "
+                    f"sleep_seconds={delay} error={e}"
+                )
+                time.sleep(delay)
+                return self._request(method, url, _retries=_retries + 1, **kwargs)
             logger.error(
                 f"event=github_request_error url={url} error={e}", exc_info=True
             )
