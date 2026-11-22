@@ -5,6 +5,7 @@ from datetime import timedelta
 from scans.models import Scan
 from findings.models import Finding, IgnoreFindingType, IgnoreFindingDomain
 from core.models import RepoScanHistory, SystemSettings
+from core.verification import is_trusted_verification
 
 logger = getLogger(__name__)
 
@@ -223,7 +224,13 @@ class ScanOrchestrator:
         """
         for finding in findings:
             if not self.should_ignore_finding(finding):
-                Finding.objects.update_or_create(
+                # The scanner's verdict, minus detectors whose verifier is known to lie.
+                # Without recording it the `--only-verified` setting is unreachable and every
+                # row reads False.
+                trusted = is_trusted_verification(
+                    finding.get("type"), finding.get("verified", False)
+                )
+                record, created = Finding.objects.update_or_create(
                     fingerprint=Finding.make_fingerprint(
                         finding["repository"],
                         finding["commit"],
@@ -244,6 +251,12 @@ class ScanOrchestrator:
                         commit_url=f"{repo_url}/commit/{finding['commit']}",
                     ),
                 )
+                # A new row takes the scanner's verdict. An existing row only ever gains a
+                # verification: a human who marked something validated keeps that mark when a
+                # later scan of the same secret comes back unverified.
+                if (created and record.validated != trusted) or (trusted and not record.validated):
+                    record.validated = trusted
+                    record.save(update_fields=["validated"])
                 self.scan.total_findings += 1
                 self.scan.save()
             else:

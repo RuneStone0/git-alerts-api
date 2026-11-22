@@ -56,6 +56,10 @@ class TruffleHogClient:
                         "type": finding_data.get("DetectorName"),
                         "description": finding_data.get("DetectorDescription"),
                         "value": finding_data.get("Raw"),
+                        # TruffleHog's own verdict. `--only-verified` filters on it, so storing it
+                        # is what makes the flag auditable after the fact; whether it can be
+                        # trusted per detector is decided in core.verification.
+                        "verified": bool(finding_data.get("Verified")),
                     }
                     all_findings.append(parsed_data)
 
