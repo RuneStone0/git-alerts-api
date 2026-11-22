@@ -1,4 +1,5 @@
 from logging import getLogger
+from django.db.models import Q
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from .serializers import FindingSerializer, IgnoreFindingTypeSerializer, IgnoreFindingDomainSerializer
@@ -16,7 +17,12 @@ class FindingView(generics.ListAPIView):
     ordering_fields = ["created_at", "type", "repository", "email"]
 
     def get_queryset(self):
-        return Finding.objects.filter(scan__user=self.request.user)
+        # scan is SET_NULL so extracted findings outlive their scan; those rows belong to the
+        # instance rather than to any user, and in a single-tenant deployment they are still
+        # this user's findings.
+        return Finding.objects.filter(
+            Q(scan__user=self.request.user) | Q(scan__isnull=True)
+        )
 
 class FindingDetailsView(generics.RetrieveUpdateDestroyAPIView):
     """API view for retrieving and deleting individual findings"""
@@ -25,7 +31,9 @@ class FindingDetailsView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         """Returns individual finding belongs to the user"""
-        return Finding.objects.filter(scan__user=self.request.user)
+        return Finding.objects.filter(
+            Q(scan__user=self.request.user) | Q(scan__isnull=True)
+        )
 
 class IgnoreFindingTypeView(generics.ListCreateAPIView):
     """API view for the ignored finding types"""

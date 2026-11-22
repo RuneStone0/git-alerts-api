@@ -9,7 +9,7 @@ class FindingSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "repository", "type", "value", "description",
             "file", "line", "email", "commit_hash", "commit_url",
-            "scan", "created_at", "updated_at"
+            "scan", "fingerprint", "created_at", "updated_at"
         ]
 
 class IgnoreFindingTypeSerializer(serializers.ModelSerializer):

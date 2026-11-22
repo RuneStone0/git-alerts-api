@@ -215,20 +215,34 @@ class ScanOrchestrator:
         return False
 
     def save_findings(self, repo_url: str, findings: list[dict]):
-        """Save all findings for a given repository"""
+        """Save all findings for a given repository
+
+        A finding is identified by its fingerprint, not by the scan that saw it, so a repo that
+        is scanned again refreshes the existing row (and repoints it at the newest scan) instead
+        of creating a duplicate.
+        """
         for finding in findings:
             if not self.should_ignore_finding(finding):
-                Finding.objects.create(
-                    scan=self.scan,
-                    repository=finding["repository"],
-                    type=finding["type"],
-                    value=finding["value"],
-                    description=finding["description"],
-                    file=finding["file"],
-                    line=finding["line"],
-                    email=finding["author"],
-                    commit_hash=finding["commit"],
-                    commit_url=f"{repo_url}/commit/{finding['commit']}",
+                Finding.objects.update_or_create(
+                    fingerprint=Finding.make_fingerprint(
+                        finding["repository"],
+                        finding["commit"],
+                        finding["file"],
+                        finding["type"],
+                        finding["value"],
+                    ),
+                    defaults=dict(
+                        scan=self.scan,
+                        repository=finding["repository"],
+                        type=finding["type"],
+                        value=finding["value"],
+                        description=finding["description"] or "",
+                        file=finding["file"] or "",
+                        line=finding["line"],
+                        email=finding["author"] or "",
+                        commit_hash=finding["commit"] or "",
+                        commit_url=f"{repo_url}/commit/{finding['commit']}",
+                    ),
                 )
                 self.scan.total_findings += 1
                 self.scan.save()
