@@ -1,0 +1,521 @@
+import React, { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { scansApi } from '@/services/api';
+import {
+  StatusIndicator,
+  scanStatusLabel,
+  scanStatusTone,
+} from '@/components/StatusIndicator';
+
+export const Scans: React.FC = () => {
+  const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedScans, setSelectedScans] = useState<Set<number>>(new Set());
+  const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
+
+  // Filter form state
+  const [filterForm, setFilterForm] = useState({
+    type: searchParams.get('type') || '',
+    value: searchParams.get('value') || '',
+    status: searchParams.get('status') || '',
+    created_at: searchParams.get('created_at') || '',
+    completed_at: searchParams.get('completed_at') || '',
+  });
+
+  // Extract all filter parameters from URL
+  const filters = {
+    type: searchParams.get('type') || undefined,
+    value: searchParams.get('value') || undefined,
+    status: searchParams.get('status') || undefined,
+    created_at: searchParams.get('created_at') || undefined,
+    completed_at: searchParams.get('completed_at') || undefined,
+  };
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['scans', filters, page],
+    queryFn: () => scansApi.list({ ...filters, page, page_size: pageSize }),
+    refetchInterval: (query) => {
+      const results = query.state.data?.results;
+      // Auto-refresh every 5 seconds if any scan on this page is active
+      const hasActiveScan = results?.some(
+        (scan) => scan.status === 'queued' || scan.status === 'in_progress'
+      );
+      return hasActiveScan ? 5000 : false;
+    },
+  });
+
+  const scans = data?.results ?? [];
+  const totalCount = data?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: number[]) => {
+      await Promise.all(ids.map(id => scansApi.delete(id)));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scans'] });
+      setSelectedScans(new Set());
+    },
+  });
+
+  const handleToggleSelection = (id: number) => {
+    const newSelected = new Set(selectedScans);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedScans(newSelected);
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedScans.size === scans.length) {
+      setSelectedScans(new Set());
+    } else {
+      setSelectedScans(new Set(scans.map(s => s.id)));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    const count = selectedScans.size;
+    if (window.confirm(`Are you sure you want to delete ${count} scan${count > 1 ? 's' : ''}? This action cannot be undone.`)) {
+      bulkDeleteMutation.mutate(Array.from(selectedScans));
+    }
+  };
+
+  const handleApplyFilters = () => {
+    const newParams = new URLSearchParams();
+    Object.entries(filterForm).forEach(([key, value]) => {
+      if (value) {
+        newParams.set(key, value);
+      }
+    });
+    setSearchParams(newParams);
+    setPage(1);
+    setShowFilters(false);
+  };
+
+  const handleClearFilters = () => {
+    setFilterForm({
+      type: '',
+      value: '',
+      status: '',
+      created_at: '',
+      completed_at: '',
+    });
+    setSearchParams(new URLSearchParams());
+    setPage(1);
+  };
+
+  const handleRemoveFilter = (key: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete(key);
+    setSearchParams(newParams);
+    setFilterForm({ ...filterForm, [key]: '' });
+    setPage(1);
+  };
+
+
+  const formatScanType = (type: string) => {
+    const typeMap: Record<string, string> = {
+      org_repos: 'Organization Repositories',
+      org_users: 'Organization Users',
+      search_code: 'Search Code',
+      search_commits: 'Search Commits',
+      search_issues: 'Search Issues',
+      search_repos: 'Search Repositories',
+      search_users: 'Search Users',
+    };
+    return typeMap[type] || type;
+  };
+
+  // Get active filter labels
+  const activeFilters = Object.entries(filters)
+    .filter(([_, value]) => value !== undefined)
+    .map(([key, value]) => `${key}: ${value}`);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Scans</h1>
+          {selectedScans.size > 0 && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {selectedScans.size} scan{selectedScans.size > 1 ? 's' : ''} selected
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {selectedScans.size > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+              className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg bg-destructive px-4 py-2 font-medium text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {bulkDeleteMutation.isPending ? 'Deleting...' : `Delete Selected (${selectedScans.size})`}
+            </button>
+          )}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg bg-secondary px-4 py-2 font-medium text-secondary-foreground transition-opacity hover:opacity-90"
+          >
+            {showFilters ? 'Hide Filters' : 'Show Filters'}
+          </button>
+          <Link
+            to="/scans/new"
+            className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            New Scan
+          </Link>
+        </div>
+      </div>
+
+      {/* Active Filters */}
+      {activeFilters.length > 0 && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-sm font-medium text-muted-foreground">Active filters:</span>
+          {Object.entries(filters).map(([key, value]) =>
+            value !== undefined ? (
+              <span
+                key={key}
+                className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
+              >
+                <span className="font-medium">{key}:</span>
+                <span>{value.toString()}</span>
+                <button
+                  onClick={() => handleRemoveFilter(key)}
+                  className="hover:text-primary/80 font-bold"
+                  title={`Remove ${key} filter`}
+                >
+                  ×
+                </button>
+              </span>
+            ) : null
+          )}
+          <button
+            onClick={handleClearFilters}
+            className="text-sm text-muted-foreground hover:text-foreground underline"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {/* Filter Panel */}
+      {showFilters && (
+        <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Filter Scans</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Type Filter */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Scan Type
+              </label>
+              <select
+                value={filterForm.type}
+                onChange={(e) => setFilterForm({ ...filterForm, type: e.target.value })}
+                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">All Types</option>
+                <option value="org_repos">Organization Repositories</option>
+                <option value="org_users">Organization Users</option>
+                <option value="search_code">Search Code</option>
+                <option value="search_commits">Search Commits</option>
+                <option value="search_issues">Search Issues</option>
+                <option value="search_repos">Search Repositories</option>
+                <option value="search_users">Search Users</option>
+              </select>
+            </div>
+
+            {/* Value Filter */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Query Value
+              </label>
+              <input
+                type="text"
+                value={filterForm.value}
+                onChange={(e) => setFilterForm({ ...filterForm, value: e.target.value })}
+                placeholder="e.g., my-org, search query"
+                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Status
+              </label>
+              <select
+                value={filterForm.status}
+                onChange={(e) => setFilterForm({ ...filterForm, status: e.target.value })}
+                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">All Statuses</option>
+                <option value="queued">Queued</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+
+            {/* Created Date Filter */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Created Date
+              </label>
+              <input
+                type="date"
+                value={filterForm.created_at}
+                onChange={(e) => setFilterForm({ ...filterForm, created_at: e.target.value })}
+                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            {/* Completed Date Filter */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Completed Date
+              </label>
+              <input
+                type="date"
+                value={filterForm.completed_at}
+                onChange={(e) => setFilterForm({ ...filterForm, completed_at: e.target.value })}
+                className="w-full px-3 py-2 bg-background border border-input rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          </div>
+
+          {/* Filter Actions */}
+          <div className="flex flex-wrap gap-3 mt-6">
+            <button
+              onClick={handleApplyFilters}
+              className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg bg-primary px-6 py-2 font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Apply Filters
+            </button>
+            <button
+              onClick={handleClearFilters}
+              className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg border border-border px-6 py-2 font-medium transition-colors hover:bg-accent"
+            >
+              Clear All
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="bg-card border border-border rounded-lg p-8 text-center">
+          <p className="text-muted-foreground">Loading scans...</p>
+        </div>
+      ) : error ? (
+        <div className="bg-card border border-border rounded-lg p-8 text-center">
+          <p className="text-destructive">Failed to load scans</p>
+        </div>
+      ) : scans.length === 0 ? (
+        <div className="bg-card border border-border rounded-lg p-8 text-center">
+          <p className="text-muted-foreground">No scans yet</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Create your first scan to get started
+          </p>
+          <Link
+            to="/scans/new"
+            className="inline-block mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity"
+          >
+            Create Scan
+          </Link>
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="hidden overflow-x-auto lg:block">
+            <table className="w-full">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-12">
+                    <input
+                      type="checkbox"
+                      checked={scans.length > 0 && selectedScans.size === scans.length}
+                      onChange={handleToggleSelectAll}
+                      className="w-4 h-4 rounded border-input text-primary focus:ring-2 focus:ring-ring cursor-pointer"
+                      title="Select all"
+                    />
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Query
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Repositories
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Findings
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Created
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {scans.map((scan) => (
+                  <tr key={scan.id} className="hover:bg-muted/50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedScans.has(scan.id)}
+                        onChange={() => handleToggleSelection(scan.id)}
+                        className="w-4 h-4 rounded border-input text-primary focus:ring-2 focus:ring-ring cursor-pointer"
+                        title={`Select scan ${scan.id}`}
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Link
+                        to={`/scans/${scan.id}`}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        {formatScanType(scan.type)}
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-foreground">{scan.value}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <StatusIndicator
+                        tone={scanStatusTone(scan.status)}
+                        label={scanStatusLabel(scan.status)}
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-foreground">
+                        <div>Total: {scan.total_repositories}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Scanned: {scan.scanned_repositories}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-foreground">
+                        <div>Total: {scan.total_findings}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Ignored: {scan.ignored_findings}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                      {new Date(scan.created_at).toLocaleDateString()}
+                      <div className="text-xs">
+                        {new Date(scan.created_at).toLocaleTimeString()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <Link
+                        to={`/findings?scan=${scan.id}`}
+                        className="text-primary hover:text-primary/80 font-medium"
+                      >
+                        View Findings
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Below lg the 1200px table cannot fit, so each row becomes a card */}
+          <ul className="divide-y divide-border lg:hidden">
+            {scans.map((scan) => (
+              <li key={scan.id} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="grid min-w-0 flex-1 grid-cols-[5.5rem_1fr] items-start gap-x-2">
+                    <StatusIndicator
+                      tone={scanStatusTone(scan.status)}
+                      label={scanStatusLabel(scan.status)}
+                    />
+                    <Link
+                      to={`/scans/${scan.id}`}
+                      className="min-w-0 text-sm font-semibold leading-5 text-primary hover:underline"
+                    >
+                      {formatScanType(scan.type)}
+                    </Link>
+                    <p className="col-span-2 mt-1 truncate text-sm text-foreground">{scan.value}</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedScans.has(scan.id)}
+                    onChange={() => handleToggleSelection(scan.id)}
+                    className="mt-1 h-5 w-5 shrink-0 rounded border-input text-primary focus:ring-2 focus:ring-ring cursor-pointer"
+                    title={`Select scan ${scan.id}`}
+                  />
+                </div>
+
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {new Date(scan.created_at).toLocaleDateString()} at{' '}
+                  {new Date(scan.created_at).toLocaleTimeString()}
+                </p>
+
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Repositories</dt>
+                    <dd className="text-foreground">
+                      {scan.total_repositories} total / {scan.scanned_repositories} scanned
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Findings</dt>
+                    <dd className="text-foreground">
+                      {scan.total_findings} total / {scan.ignored_findings} ignored
+                    </dd>
+                  </div>
+                </dl>
+
+                <Link
+                  to={`/findings?scan=${scan.id}`}
+                  className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-primary hover:text-primary/80"
+                >
+                  View Findings
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          {/* Pagination */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 sm:px-6">
+            <p className="text-sm text-muted-foreground">
+              Showing {scans.length} of {totalCount} scan{totalCount === 1 ? '' : 's'}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="inline-flex min-h-9 items-center justify-center rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="inline-flex min-h-9 items-center justify-center rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

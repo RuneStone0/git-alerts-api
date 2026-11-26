@@ -1,0 +1,49 @@
+[project]
+name = "api"
+version = "1.0.0"
+description = "Django REST API for automated security scanning of GitHub repositories to detect exposed secrets and sensitive information"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "celery==5.6.3",
+    "cryptography==50.0.1",
+    "django==6.1",
+    "django-cors-headers==4.9.0",
+    "django-filter==26.1",
+    "djangorestframework==3.18.0",
+    "djangorestframework-simplejwt==5.5.1",
+    "drf-spectacular==0.30.0",
+    "gunicorn==26.2.0",
+    "psycopg2-binary==2.9.12",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "pytest-django==4.14.0",
+    "python-dotenv==1.2.3",
+    "redis==8.1.0",
+    "requests==2.34.2",
+    "watchdog==6.0.0",
+]
+
+[tool.coverage.run]
+# Measure the project itself: `source = ["."]` keeps coverage from picking up site-packages, and the
+# omit list is what makes the number mean "our code", not "our code plus its scaffolding".
+source = ["."]
+omit = [
+    ".venv/*",
+    "*/migrations/*",
+    "*/tests/*",
+    "test_*.py",
+    "manage.py",
+    "api/asgi.py",
+    "api/wsgi.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+    "if __name__ == .__main__.:",
+]
