@@ -218,7 +218,7 @@ class ScanOrchestrator:
         """Save all findings for a given repository"""
         for finding in findings:
             if not self.should_ignore_finding(finding):
-                Finding.objects.create(
+                saved = Finding.objects.create(
                     scan=self.scan,
                     repository=finding["repository"],
                     type=finding["type"],
@@ -230,6 +230,15 @@ class ScanOrchestrator:
                     commit_hash=finding["commit"],
                     commit_url=f"{repo_url}/commit/{finding['commit']}",
                 )
+                # Contract outbox: one append-only row the triage service pulls by cursor. Failures
+                # here must never stop a scan, so they are logged and the finding still counts.
+                try:
+                    from findings.outbox import emit as emit_contract
+                    emit_contract(saved)
+                except Exception:
+                    logger.exception(
+                        f"event=outbox_emit_failed finding={saved.pk} scan={self.scan.id}"
+                    )
                 self.scan.total_findings += 1
                 self.scan.save()
             else:

@@ -18,6 +18,10 @@ try:
     CELERY_BROKER_URL = Config.get_env("CELERY_BROKER_URL")
     CELERY_RESULT_BACKEND = Config.get_env("CELERY_RESULT_BACKEND")
 
+    # Salt for contract-v1 secret fingerprints. Optional so an existing deployment keeps booting, but
+    # without it the fallback is SECRET_KEY, and rotating that would change every fingerprint.
+    GITALERTS_FINDING_SALT = Config.get_env("GITALERTS_FINDING_SALT", required=False) or ""
+
     Config.require_executable("trufflehog")
 except ConfigError as e:
     raise RuntimeError(e)
