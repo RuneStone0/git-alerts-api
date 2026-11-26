@@ -28,6 +28,11 @@ RUN uv sync --frozen --no-install-project --no-dev
 COPY . .
 RUN uv sync --frozen --no-dev
 
+# settings.LOGGING attaches a FileHandler to /app/logs/application.log at startup and Django dies
+# if the directory is absent, so a checkout without logs/ crash-loops the container before it can
+# serve a request. The directory is gitignored, so it must be created in the image.
+RUN mkdir -p /app/logs
+
 EXPOSE 8000
 
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "api.wsgi:application"]
