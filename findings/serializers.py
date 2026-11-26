@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Finding, IgnoreFindingType, IgnoreFindingDomain
+from .models import Finding, FindingOutbox, IgnoreFindingType, IgnoreFindingDomain
 
 class FindingSerializer(serializers.ModelSerializer):
     """Serializer for finding model"""
@@ -103,3 +103,11 @@ class IgnoreFindingDomainSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "created_at"
         ]
+
+
+class FindingOutboxSerializer(serializers.ModelSerializer):
+    """Contract record as stored, for the triage cursor to consume."""
+
+    class Meta:
+        model = FindingOutbox
+        fields = ["seq", "finding_id", "contract_version", "payload", "emitted_at"]

@@ -284,6 +284,14 @@ class ScanOrchestrator:
                 if (created and record.validated != trusted) or (trusted and not record.validated):
                     record.validated = trusted
                     record.save(update_fields=["validated"])
+                # Contract outbox: one append-only row the triage service pulls by cursor. emit() is
+                # idempotent on (finding, contract_version), so a re-sighting costs one SELECT. A
+                # contract error is logged and must never stop a scan.
+                try:
+                    from findings.outbox import emit as emit_contract
+                    emit_contract(record)
+                except Exception:
+                    logger.exception(f"event=outbox_emit_failed finding={record.pk} scan={self.scan.id}")
                 self.scan.total_findings += 1
                 self.scan.save()
             else:
