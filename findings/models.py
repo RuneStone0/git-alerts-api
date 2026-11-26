@@ -124,3 +124,24 @@ class IgnoreFindingDomain(models.Model):
 
 
 
+
+
+class FindingOutbox(models.Model):
+    """Append-only contract records for the triage service to pull.
+
+    One row per (finding, contract_version). Rows are never edited or deleted: a corrected finding
+    is a new row with `supersedes` inside the payload. Consumers advance a cursor over `seq`.
+    """
+
+    seq = models.BigAutoField(primary_key=True)
+    finding_id = models.CharField(max_length=64)
+    contract_version = models.IntegerField(default=1)
+    payload = models.JSONField()
+    emitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = (("finding_id", "contract_version"),)
+        ordering = ["seq"]
+
+    def __str__(self):
+        return f"outbox {self.seq} finding={self.finding_id} v{self.contract_version}"

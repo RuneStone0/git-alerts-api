@@ -5,8 +5,9 @@ from rest_framework.permissions import IsAuthenticated
 from .serializers import (
     FindingSerializer, FindingListSerializer, wants_value,
     IgnoreFindingTypeSerializer, IgnoreFindingDomainSerializer,
+    FindingOutboxSerializer,
 )
-from . models import Finding, IgnoreFindingType, IgnoreFindingDomain
+from . models import Finding, FindingOutbox, IgnoreFindingType, IgnoreFindingDomain
 from programs.filters import filter_by_program
 
 logger = getLogger(__name__)
@@ -76,3 +77,30 @@ class IgnoredFindingDomainDetailView(generics.RetrieveDestroyAPIView):
 
     def get_queryset(self):
         return IgnoreFindingDomain.objects.filter(id=self.kwargs["pk"])
+
+
+class FindingOutboxView(generics.ListAPIView):
+    """Pull contract records by cursor: GET /outbox/findings/?since_seq=&limit=
+
+    No pagination wrapper, so the response is a bare list a client can append to a local cursor
+    without knowing DRF's envelope. limit is clamped, since a triage restart may ask for a large
+    catch-up in one call.
+    """
+
+    serializer_class = FindingOutboxSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = FindingOutbox.objects.all().order_by("seq")
+        since = self.request.query_params.get("since_seq")
+        if since not in (None, ""):
+            try:
+                qs = qs.filter(seq__gt=int(since))
+            except (TypeError, ValueError):
+                qs = qs.none()
+        try:
+            limit = int(self.request.query_params.get("limit", 200))
+        except (TypeError, ValueError):
+            limit = 200
+        return qs[: max(1, min(limit, 1000))]
