@@ -87,7 +87,18 @@ export interface Finding {
    */
   report_status?: '' | 'reported';
   reported_at?: string | null;
+  /**
+   * The human's claim about the verdict. A claim is settled by the reviewer, never written into
+   * the verdict itself, and the three values answer three different questions: was the detector
+   * wrong, was it someone else's credential, or is it real but not receivable here.
+   */
+  human_verdict?: HumanVerdict;
+  human_reason?: string;
+  human_note?: string;
+  human_at?: string | null;
 }
+
+export type HumanVerdict = '' | 'detector_wrong' | 'not_ours' | 'not_reportable';
 
 // Program (project) Types
 export type ProgramSource = 'crawler' | 'manual';

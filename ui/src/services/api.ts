@@ -10,6 +10,7 @@ import type {
   IgnoreFindingDomain,
   CreateIgnoreTypeRequest,
   CreateIgnoreDomainRequest,
+  HumanVerdict,
   UserIntegration,
   CreateIntegrationRequest,
   SystemSettings,
@@ -146,6 +147,22 @@ export const findingsApi = {
       report_status: status,
       reported_at: status ? new Date().toISOString() : null,
     });
+    return response.data;
+  },
+
+  /**
+   * Record the human's claim about a verdict. A claim, not a decision: the factory owns the
+   * verdict and the reviewer settles the claim against the evidence, so this never writes
+   * `validated` and never touches the review snapshot. Clearing the claim clears its reason,
+   * note and date with it, in one request, so half a record cannot survive.
+   */
+  setHumanVerdict: async (
+    id: number,
+    claim: { verdict: Exclude<HumanVerdict, ''>; reason: string; note?: string } | null
+  ): Promise<Finding> => {
+    const response = await apiClient.patch<Finding>(`/findings/${id}/`, claim
+      ? { human_verdict: claim.verdict, human_reason: claim.reason, human_note: claim.note ?? '' }
+      : { human_verdict: '' });
     return response.data;
   },
 

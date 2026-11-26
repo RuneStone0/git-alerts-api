@@ -38,6 +38,35 @@ class Finding(models.Model):
     report_status = models.CharField(max_length=16, choices=REPORT_STATUS, blank=True, default="")
     reported_at = models.DateTimeField(null=True, blank=True)
 
+    # A human's disagreement with a verdict, recorded as a claim the reviewer settles rather than
+    # as a toggle. The three values are deliberately separate: a detector error, someone else's
+    # credential, and a real finding this programme cannot receive are three different
+    # corrections, and only the first should ever feed a precision number.
+    #
+    # A claim never writes `validated`, `report_status` or the review snapshot. The factory owns
+    # the verdict; this is the input to the reviewer that challenges it.
+    HUMAN_VERDICT = [
+        ("", "No claim"),
+        ("detector_wrong", "Detector was wrong"),
+        ("not_ours", "Not this org's credential"),
+        ("not_reportable", "Real, not reportable here"),
+    ]
+    # The reason must belong to the claim, so one click cannot mean two things. Codes match
+    # `validation.context` on the pipeline side.
+    HUMAN_REASONS = {
+        "detector_wrong": ("scanner_fixture", "fixture_in_detector_source"),
+        "not_ours": ("upstream_inherited", "vendored_path", "documented_public", "same_value_as_earlier"),
+        "not_reportable": (
+            "live_not_eligible", "courtesy_out_of_scope", "scope_unlisted_repo", "scope_mismatch",
+            "scope_unknown", "no_program", "no_impact_by_design", "removed_from_tree", "revoked",
+            "test_path_excluded",
+        ),
+    }
+    human_verdict = models.CharField(max_length=20, choices=HUMAN_VERDICT, blank=True, default="")
+    human_reason = models.CharField(max_length=64, blank=True, default="")
+    human_note = models.CharField(max_length=512, blank=True, default="")
+    human_at = models.DateTimeField(null=True, blank=True)
+
     # Identity of the finding itself, independent of which scan saw it last, so re-scanning a
     # repository updates instead of duplicating.
     fingerprint = models.CharField(max_length=64, unique=True)

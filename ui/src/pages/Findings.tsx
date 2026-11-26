@@ -15,7 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { findingsApi, programsApi } from '@/services/api';
-import type { Finding } from '@/types';
+import type { Finding, HumanVerdict } from '@/types';
 import {
   nextSort,
   readSortParam,
@@ -729,6 +729,84 @@ const ReportedBadge: React.FC<{ finding?: Finding | null }> = ({ finding }) => {
   );
 };
 
+/**
+ * The human's claim about a verdict. A claim is not a decision: it says which question the row's
+ * verdict got wrong, and the reviewer settles it against the evidence. The three groups are kept
+ * apart on purpose, because only the first is a false positive at all.
+ */
+const HUMAN_CLAIMS: {
+  key: Exclude<HumanVerdict, ''>;
+  label: string;
+  chip: string;
+  tone: string;
+  reasons: { key: string; label: string }[];
+}[] = [
+  {
+    key: 'detector_wrong',
+    label: 'Detector was wrong',
+    chip: 'Detector wrong',
+    tone: 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+    reasons: [
+      { key: 'scanner_fixture', label: "The scanner's own fixture or test data" },
+      { key: 'fixture_in_detector_source', label: 'Inside a bundled archive or detector source' },
+    ],
+  },
+  {
+    key: 'not_ours',
+    label: "Not this org's credential",
+    chip: 'Not ours',
+    tone: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    reasons: [
+      { key: 'upstream_inherited', label: 'Comes from the upstream project' },
+      { key: 'vendored_path', label: 'Sits in a dependency directory' },
+      { key: 'documented_public', label: 'Published by the repository itself' },
+      { key: 'same_value_as_earlier', label: 'Same value as an earlier row' },
+    ],
+  },
+  {
+    key: 'not_reportable',
+    label: 'Real, but not reportable here',
+    chip: 'Not reportable',
+    tone: 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300',
+    reasons: [
+      { key: 'live_not_eligible', label: 'Not eligible through this program' },
+      { key: 'courtesy_out_of_scope', label: 'Out of scope, kept for the courtesy lane' },
+      { key: 'scope_unlisted_repo', label: 'Repository is not in the scope list' },
+      { key: 'scope_mismatch', label: 'Scope record is about another program' },
+      { key: 'scope_unknown', label: 'No trustworthy scope record exists' },
+      { key: 'no_program', label: 'No disclosure program at all' },
+      { key: 'no_impact_by_design', label: 'No impact any program would accept' },
+      { key: 'removed_from_tree', label: 'Value is no longer in the tree' },
+      { key: 'revoked', label: 'Credential has been revoked' },
+      { key: 'test_path_excluded', label: 'Test or example file' },
+    ],
+  },
+];
+
+const claimLabel = (verdict?: HumanVerdict, reason?: string): string => {
+  const claim = HUMAN_CLAIMS.find((entry) => entry.key === verdict);
+  if (!claim) return '';
+  const why = claim.reasons.find((entry) => entry.key === reason)?.label;
+  return why ? `${claim.label}: ${why.toLowerCase()}` : claim.label;
+};
+
+/**
+ * The human trail for a claim, quiet for the same reason the reported badge is: it is neither a
+ * verdict nor a proof, just the question a person asked the reviewer to settle.
+ */
+const ClaimBadge: React.FC<{ finding?: Finding | null }> = ({ finding }) => {
+  const claim = HUMAN_CLAIMS.find((entry) => entry.key === finding?.human_verdict);
+  if (!claim) return null;
+  return (
+    <span
+      title={finding?.human_note ? `${claimLabel(finding.human_verdict, finding.human_reason)}: ${finding.human_note}` : claimLabel(finding?.human_verdict, finding?.human_reason)}
+      className={`inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide ${claim.tone}`}
+    >
+      {claim.chip}
+    </span>
+  );
+};
+
 const DOT: Record<ReviewGate['status'], string> = {
   pass: 'bg-emerald-500',
   fail: 'bg-rose-500',
@@ -1108,6 +1186,21 @@ export const Findings: React.FC = () => {
   const reportMutation = useMutation({
     mutationFn: ({ id, status }: { id: number; status: '' | 'reported' }) =>
       findingsApi.setReportState(id, status),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['findings'] });
+      queryClient.invalidateQueries({ queryKey: ['finding', variables.id] });
+    },
+  });
+
+  /**
+   * The human's claim, recorded on the finding. The reviewer settles it; nothing here changes the
+   * factory verdict, the scanner flag or the review snapshot.
+   */
+  const humanMutation = useMutation({
+    mutationFn: ({ id, claim }: {
+      id: number;
+      claim: { verdict: Exclude<HumanVerdict, ''>; reason: string; note?: string } | null;
+    }) => findingsApi.setHumanVerdict(id, claim),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['findings'] });
       queryClient.invalidateQueries({ queryKey: ['finding', variables.id] });
@@ -1661,6 +1754,7 @@ export const Findings: React.FC = () => {
                           onCopy={() => copy(item?.ref ?? `#${finding.id}`, `ref:${finding.id}`)}
                         />
                         <ReportedBadge finding={finding} />
+                        <ClaimBadge finding={finding} />
                       </span>
                     </td>
                     <td className="hidden px-2 py-1.5 lg:table-cell">
@@ -1703,6 +1797,7 @@ export const Findings: React.FC = () => {
                       onCopy={() => copy(item?.ref ?? `#${finding.id}`, `ref:${finding.id}`)}
                     />
                     <ReportedBadge finding={finding} />
+                        <ClaimBadge finding={finding} />
                   </span>
                   <button onClick={() => openItem(drawerItem(finding))} className="w-full text-left">
                     <span className="mt-0.5 flex items-center gap-2">
@@ -1767,6 +1862,10 @@ export const Findings: React.FC = () => {
             if (open.ga_id != null) reportMutation.mutate({ id: open.ga_id, status });
           }}
           reporting={reportMutation.isPending}
+          onHuman={(claim) => {
+            if (open.ga_id != null) humanMutation.mutate({ id: open.ga_id, claim });
+          }}
+          humanPending={humanMutation.isPending}
         />
       ) : null}
     </div>
@@ -1797,7 +1896,27 @@ const FindingDrawer: React.FC<{
   /** Write the submission trail on this row: 'reported' stamps the date, '' clears both. */
   onReport: (status: '' | 'reported') => void;
   reporting: boolean;
-}> = ({ item, detail, copied, link, onCopy, onClose, onDelete, deleting, onReport, reporting }) => {
+  /** Record or clear this human's claim about the verdict. */
+  onHuman: (claim: { verdict: Exclude<HumanVerdict, ''>; reason: string; note?: string } | null) => void;
+  humanPending: boolean;
+}> = ({
+  item, detail, copied, link, onCopy, onClose, onDelete, deleting, onReport, reporting,
+  onHuman, humanPending,
+}) => {
+  const recorded = (detail?.human_verdict ?? '') as HumanVerdict;
+  const [claim, setClaim] = useState<Exclude<HumanVerdict, ''> | ''>(recorded);
+  const [reason, setReason] = useState(detail?.human_reason ?? '');
+  const [note, setNote] = useState(detail?.human_note ?? '');
+  const [seededFor, setSeededFor] = useState<number | null>(detail?.id ?? null);
+  // The drawer opens before the detail request lands, so the claim is seeded once, when it does.
+  useEffect(() => {
+    if (detail && detail.id !== seededFor) {
+      setClaim((detail.human_verdict ?? '') as HumanVerdict);
+      setReason(detail.human_reason ?? '');
+      setNote(detail.human_note ?? '');
+      setSeededFor(detail.id);
+    }
+  }, [detail, seededFor]);
   const style = verdictMeta(item.verdict);
   const band = bandMeta(item.likelihood.band);
   const line = githubLineUrl(item);
@@ -2116,6 +2235,88 @@ const FindingDrawer: React.FC<{
               </p>
               {report?.body ? (
                 <p className="text-[11px] leading-snug text-muted-foreground">{report.body}</p>
+              ) : null}
+            </Section>
+
+            <Section title="Your read">
+              {recorded ? (
+                <>
+                  <p className="text-xs leading-snug text-foreground">
+                    {claimLabel(recorded, detail?.human_reason)}
+                  </p>
+                  {detail?.human_note ? (
+                    <p className="text-[11px] leading-snug text-muted-foreground">{detail.human_note}</p>
+                  ) : null}
+                  <p className="text-[11px] text-muted-foreground">
+                    Recorded{detail?.human_at ? ` ${shortDate(detail.human_at)}` : ''}. The reviewer settles
+                    it against the evidence; this does not change the verdict.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs leading-snug text-muted-foreground">
+                  Say which question this verdict got wrong. It is a claim the reviewer checks, not a
+                  verdict of its own.
+                </p>
+              )}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {HUMAN_CLAIMS.map((entry) => (
+                  <button
+                    key={entry.key}
+                    onClick={() => {
+                      setClaim(entry.key);
+                      setReason('');
+                    }}
+                    className={`inline-flex min-h-8 items-center rounded-lg border px-2.5 py-1 text-[11px] font-medium ${
+                      claim === entry.key ? entry.tone : 'border-border text-muted-foreground hover:bg-accent'
+                    }`}
+                  >
+                    {entry.label}
+                  </button>
+                ))}
+              </div>
+              {claim ? (
+                <div className="mt-2 space-y-1.5">
+                  <select
+                    value={reason}
+                    onChange={(event) => setReason(event.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs"
+                  >
+                    <option value="">Pick the reason</option>
+                    {HUMAN_CLAIMS.find((entry) => entry.key === claim)?.reasons.map((entry) => (
+                      <option key={entry.key} value={entry.key}>{entry.label}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    maxLength={512}
+                    placeholder="One line a reviewer can check (optional)"
+                    className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs"
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => onHuman({ verdict: claim, reason, note })}
+                      disabled={!reason || humanPending || item.ga_id == null}
+                      className="inline-flex min-h-8 items-center rounded-lg bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                    >
+                      {humanPending ? 'Saving...' : recorded ? 'Update claim' : 'Record claim'}
+                    </button>
+                    {recorded ? (
+                      <button
+                        onClick={() => {
+                          setClaim('');
+                          setReason('');
+                          setNote('');
+                          onHuman(null);
+                        }}
+                        disabled={humanPending}
+                        className="inline-flex min-h-8 items-center rounded-lg border border-border px-3 py-1 text-xs font-medium hover:bg-accent disabled:opacity-50"
+                      >
+                        Clear
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
               ) : null}
             </Section>
 

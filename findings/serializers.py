@@ -1,4 +1,6 @@
+from django.utils import timezone
 from rest_framework import serializers
+
 from .models import Finding, IgnoreFindingType, IgnoreFindingDomain
 
 class FindingSerializer(serializers.ModelSerializer):
@@ -17,6 +19,38 @@ class FindingSerializer(serializers.ModelSerializer):
     def get_program_slug(self, obj):
         """The stable identifier clients filter on; None when no program is attached."""
         return obj.program.slug if obj.program_id else None
+
+    def validate(self, attrs):
+        """A claim needs a verdict, and the verdict needs one of its own reasons."""
+        # Clearing the claim is a complete record on its own: the reason still on the instance is
+        # about to be cleared with it, so it must not be read as a reason without a verdict.
+        clearing = "human_verdict" in attrs and not attrs.get("human_verdict")
+        verdict = attrs.get("human_verdict", getattr(self.instance, "human_verdict", "") or "")
+        reason = "" if clearing else attrs.get(
+            "human_reason", getattr(self.instance, "human_reason", "") or "")
+        if verdict and verdict not in Finding.HUMAN_REASONS:
+            raise serializers.ValidationError({"human_verdict": "unknown verdict"})
+        if verdict:
+            if not reason:
+                raise serializers.ValidationError(
+                    {"human_reason": "a verdict needs one of its reasons"})
+            if reason not in Finding.HUMAN_REASONS[verdict]:
+                raise serializers.ValidationError(
+                    {"human_reason": "that reason does not belong to that verdict"})
+        elif reason:
+            raise serializers.ValidationError({"human_reason": "a reason needs a verdict"})
+        return attrs
+
+    def update(self, instance, validated_data):
+        """The stamp follows the claim, so one PATCH cannot leave half a record behind."""
+        verdict = validated_data.get("human_verdict", instance.human_verdict)
+        if not verdict:
+            validated_data["human_reason"] = ""
+            validated_data["human_note"] = ""
+            validated_data["human_at"] = None
+        else:
+            validated_data.setdefault("human_at", timezone.now())
+        return super().update(instance, validated_data)
 
 
 class FindingListSerializer(serializers.ModelSerializer):
@@ -37,6 +71,7 @@ class FindingListSerializer(serializers.ModelSerializer):
             "id", "scan", "program", "program_slug", "repository", "type", "description", "file",
             "line", "email", "commit_hash", "commit_url", "validated", "fingerprint",
             "created_at", "updated_at", "value_length", "report_status", "reported_at",
+            "human_verdict", "human_reason", "human_note", "human_at",
         ]
         read_only_fields = fields
 
